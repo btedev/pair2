@@ -40,9 +40,9 @@ defmodule ComparerTest do
   end
 
   test "it compares values by a custom function" do
-    double = fn(x, y) -> x*2==y end
-    assert Comparer.compare_with_fun(1, 2, double) == 1.0
-    assert Comparer.compare_with_fun(1, 3, double) == 0.0
+    division = fn(x, y) -> x / y end
+    assert Comparer.compare_with_fun(1.0, 1.0, division) == 1.0
+    assert Comparer.compare_with_fun(1.0, 2.0, division) == 0.5
   end
 
   setup do

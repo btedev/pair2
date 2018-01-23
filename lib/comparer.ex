@@ -81,14 +81,9 @@ defmodule Pair2.Comparer do
 
   @doc """
   Compares x and y using the match criteria
-  defined in the fun argument. Returns 1.0 if the function is true
-  else 0.0.
+  defined in the fun argument. Function should return value between 0.0 and 1.0
   """
   def compare_with_fun(x, y, fun) do
-    case fun.(x, y) do
-      true  -> 1.0
-      false -> 0.0
-    end
+    fun.(x, y)
   end
-
 end

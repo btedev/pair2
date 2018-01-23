@@ -36,17 +36,17 @@ To illustrate how Pair2 is useful in situations where a database join can lead t
 <table>
   <tr><th>Date</th><th>Description</th><th>Amount</th><tr>
   <tr>
-    <td>2012-01-01</td>
+    <td>2018-01-01</td>
     <td>Basecamp</td>
     <td>25.00</td>
   </tr>
   <tr>
-    <td>2012-01-01</td>
+    <td>2018-01-01</td>
     <td>Basecamp</td>
     <td>25.00</td>
   </tr>
   <tr>
-    <td>2012-01-02</td>
+    <td>2018-01-02</td>
     <td>Github</td>
     <td>25.00</td>
   </tr>
@@ -57,12 +57,12 @@ To illustrate how Pair2 is useful in situations where a database join can lead t
 <table>
   <tr><th>Date</th><th>Description</th><th>Amount</th><tr>
   <tr>
-    <td>2012-01-01</td>
+    <td>2018-01-01</td>
     <td>Basecamp (37 signals)</td>
     <td>25.00</td>
   </tr>
   <tr>
-    <td>2012-01-03</td>
+    <td>2018-01-03</td>
     <td>Github</td>
     <td>25.00</td>
   </tr>
@@ -73,12 +73,12 @@ Using a SQL approach, you might load the datasets into two tables, "ledger" and 
 ``` sql
   select * from ledger a join bank b on a.amount = b.amount;
 
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-01|Basecamp|25.0|2012-01-03|Github|25.0  
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-01|Basecamp|25.0|2012-01-03|Github|25.0  
-  2012-01-02|Github|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-02|Github|25.0|2012-01-03|Github|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-03|Github|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-03|Github|25.0  
+  2018-01-02|Github|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-02|Github|25.0|2018-01-03|Github|25.0  
 ```
 
 That's clearly not the right answer. Because amount was the only criterion used for joining, the query joins each record with a $25 value (3*2 pairs).
@@ -88,8 +88,8 @@ OK, how about adding in the date:
 ``` sql
   select * from ledger a join bank b on a.amount = b.amount and a.date = b.date;
 
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
 ```
 
 Still incorrect because the bookkeeper recorded the Github transaction on Jan. 2 and the bank shows the debit on Jan. 3. How about using description and amount?
@@ -97,7 +97,7 @@ Still incorrect because the bookkeeper recorded the Github transaction on Jan. 2
 ``` sql
   select * from ledger a join bank b on a.amount = b.amount and a.description = b.description;
 
-  2012-01-02|Github|25.0|2012-01-03|Github|25.0
+  2018-01-02|Github|25.0|2018-01-03|Github|25.0
 ```
 
 Even worse. Because two different people or systems entered these records, they have slightly different descriptions. Now you might try some more complicated SQL:
@@ -105,19 +105,54 @@ Even worse. Because two different people or systems entered these records, they 
 ``` sql
   select * from ledger a join bank b on a.amount = b.amount and (a.description = b.description or a.date = b.date);
 
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0  
-  2012-01-02|Github|25.0|2012-01-03|Github|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0  
+  2018-01-02|Github|25.0|2018-01-03|Github|25.0  
 ```
 
 At first blush that might look right, but because there are two bank statement lines, a correctly matched result *must not* contain more than two records. What we want is this:
 
 ``` sql
-  2012-01-01|Basecamp|25.0|2012-01-01|Basecamp (37 signals)|25.0    
-  2012-01-02|Github|25.0|2012-01-03|Github|25.0  
+  2018-01-01|Basecamp|25.0|2018-01-01|Basecamp (37 signals)|25.0    
+  2018-01-02|Github|25.0|2018-01-03|Github|25.0  
 ```
 
 ### Solution using Pair2
+
+``` elixir
+defmodule Mix.Tasks.Example do
+  use Mix.Task
+
+  alias Pair2.{
+    MatchRule,
+    Matcher,
+  }
+
+  @shortdoc "Simple example of matching"
+  def run(_) do
+    ledger_txns = [
+      %{id: "l1", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "l2", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "l3", name: "Github", amount: 25.0, date: ~D[2018-01-02]},
+    ]
+
+    bank_txns = [
+      %{id: "r1", name: "Basecamp (37 signals)", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "r2", name: "Github", amount: 25.0, date: ~D[2018-01-03]}
+    ]
+
+    rule_amount = %MatchRule{left_attr: :amount, right_attr: :amount, indexed: true}
+    rule_date   = %MatchRule{left_attr: :date, right_attr: :date, min_match: 0.8}
+
+    {:ok, matches} = Matcher.match(ledger_txns, bank_txns, [rule_amount, rule_date], 1.0)
+
+    IO.inspect(matches)
+  end
+end
+```
+
+bezell@argon ~/d/e/pair2_example> mix example_custom_function
+[{"l2", "r1", 2.0}, {"l1", "r2", 2.0}]
 
 ## How It Works
 
