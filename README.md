@@ -151,23 +151,80 @@ defmodule Mix.Tasks.Example do
 end
 ```
 
+Output:
+
+``` bash
+bezell@argon ~/d/e/pair2_example> mix example
+[{"l1", "r1", 2.0}, {"l3", "r2", 1.9666666666666668}]
+```
+
+It correctly matched only one of the two duplicated Basecamp transactions to the bank statement and also matched the Github transactions despite the imperfect date match. Note that the weighting and minimum score required for a match can be adjusted by the developer. In your use of the library, you may want to accept all matches over a certain score (say 0.9) and manually review lower scoring matches (say between 0.7 and 0.9). The final score is arbitrary and the max score is determined by the rules you define. If you create three rules with the default score of 1.0, the max score for a perfect match is 3.0.
+
+Looking at this example, how could we add more specificity to the match? We might want to compare the name strings to reduce the chance of false matches. This is where custom functions come into play. This example below uses a custom function that calls [The_Fuzz](https://github.com/smashedtoatoms/the_fuzz) library to compare the edit distance between two strings and return a similarity value between 0.0 and 1.0.
+
+``` elixir
+defmodule Mix.Tasks.ExampleCustomFunction do
+  use Mix.Task
+
+  alias Pair2.{
+    MatchRule,
+    Matcher,
+  }
+
+  @shortdoc "Simple example of matching"
+  def run(_) do
+    ledger_txns = [
+      %{id: "l1", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "l2", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "l3", name: "Github", amount: 25.0, date: ~D[2018-01-01]},
+    ]
+
+    bank_txns = [
+      %{id: "r1", name: "Basecarp", amount: 25.0, date: ~D[2018-01-01]},
+      %{id: "r2", name: "Gitbulb", amount: 25.0, date: ~D[2018-01-01]}
+    ]
+
+    rule_amount = %MatchRule{left_attr: :amount, right_attr: :amount, indexed: true}
+    rule_date   = %MatchRule{left_attr: :date, right_attr: :date, min_match: 0.8}
+
+    # Returns a value between 0.0 and 1.0 based on the Levenshtein edit distance
+    # between strings a and b.
+    fuzzy_compare = fn(string_a, string_b) ->
+      distance = TheFuzz.Similarity.Levenshtein.compare(string_a, string_b)
+
+      shorter_length = [string_a, string_b]
+      |> Enum.sort(&(String.length(&1) < String.length(&2)))
+      |> List.first
+      |> String.length
+
+      (shorter_length - distance) / shorter_length
+    end
+
+    rule_edit_distance = %MatchRule{left_attr: :name, right_attr: :name, fun: fuzzy_compare, min_match: 0.3}
+
+    {:ok, matches} = Matcher.match(ledger_txns, bank_txns, [rule_amount, rule_date, rule_edit_distance], 1.5)
+
+    IO.inspect(matches)
+  end
+end
+```
+
+Output:
+
+``` bash
 bezell@argon ~/d/e/pair2_example> mix example_custom_function
-[{"l2", "r1", 2.0}, {"l1", "r2", 2.0}]
-
-## How It Works
-
-## Defining match pairs
+[{"l1", "r1", 2.875}, {"l3", "r2", 2.6666666666666665}]
+```
 
 ## Comments and Caveats
 
 * This is designed for 1:1 matching. You will need to fork and modify it for any other use.
 Check out fuzzy_match for a different approach to rich, rules-based searching: https://github.com/seamusabshere/fuzzy_match.
 FEBRL is another free data linking library written in Python: http://sourceforge.net/projects/febrl/.
-* Every object will be allocated to one of three resulting arrays: matches, left exceptions, and right exceptions.
-* Fuzzy != magic. Every object from the left store will be matched with the highest-possible scoring match from the right store according to the rules you supply the matcher.
-* You can use negative scores to decrease the liklihood of pairing.
-* In cases where two or more left objects match the same right object with the same score, the object chosen for final match
-assignment is arbitrary. The other left object(s) will be added to the left exceptions array.
+* Fuzzy != magic. Every object from the left dataset will be matched with the highest-possible scoring match from the right dataset according to the rules you supply the matcher.
+* You can use negative scores to decrease the likelihood of pairing.
+* In cases where two or more left records match the same right record with the same score, the object chosen for final match
+assignment is arbitrary.
 * Testing is your friend. Test your rules in the controlled environment of the test suite before deploying on production data.
 * If you use it, I'd love to know what problem you're applying it to. Besides using it in my company, I also use it for reconciling my bank statement.
 
