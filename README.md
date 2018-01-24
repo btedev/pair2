@@ -1,6 +1,6 @@
 # Pair2
 
-Pair2 is a library for performing rules-based matches between records in two datasets. These datasets are typically from two different sources that pertain to the same or similar set of transactions. Matching allows you to compare the datasets and produces an array of matched records as well as an array of exceptions (non-matches) for each input dataset.
+Pair2 is a library for performing rules-based matches between records in two datasets. These datasets are typically from two different sources that pertain to the same or similar set of transactions. Matching allows you to compare the datasets and produces a list of matched records.
 
 Matching is designed primarily for reconciliations. Example use cases:
 
@@ -158,9 +158,9 @@ bezell@argon ~/d/e/pair2_example> mix example
 [{"l1", "r1", 2.0}, {"l3", "r2", 1.9666666666666668}]
 ```
 
-It correctly matched only one of the two duplicated Basecamp transactions to the bank statement and also matched the Github transactions despite the imperfect date match. Note that the weighting and minimum score required for a match can be adjusted by the developer. In your use of the library, you may want to accept all matches over a certain score (say 0.9) and manually review lower scoring matches (say between 0.7 and 0.9). The final score is arbitrary and the max score is determined by the rules you define. If you create three rules with the default score of 1.0, the max score for a perfect match is 3.0.
+It correctly matched only one of the two duplicated Basecamp transactions to the bank statement and also matched the Github transactions despite the imperfect date match. Note that the weighting and minimum score required for a match can be adjusted by the developer. In your use of the library, you may want to accept all matches over a certain score (say 0.9) and manually review lower scoring matches (say between 0.7 and 0.9). The final score is arbitrary and the max score is determined by the rules you define. For instance, if you create three rules with the default score of 1.0, the max score for a perfect match is 3.0.
 
-Looking at this example, how could we add more specificity to the match? We might want to compare the name strings to reduce the chance of false matches. This is where custom functions come into play. This example below uses a custom function that calls [The_Fuzz](https://github.com/smashedtoatoms/the_fuzz) library to compare the edit distance between two strings and return a similarity value between 0.0 and 1.0.
+Looking at this example, how could we add more specificity to the match? We might want to compare the name strings to reduce the chance of false matches. This is where custom functions come into play. This example below uses a custom function that calls [The_Fuzz](https://github.com/smashedtoatoms/the_fuzz) library to compare the edit distance between two strings and return a similarity value between 0.0 and 1.0. Note that the dates and amounts are all the same so the system would otherwise make arbitrary assignments.
 
 ``` elixir
 defmodule Mix.Tasks.ExampleCustomFunction do
@@ -171,7 +171,7 @@ defmodule Mix.Tasks.ExampleCustomFunction do
     Matcher,
   }
 
-  @shortdoc "Simple example of matching"
+  @shortdoc "Example of matching using string edit distance"
   def run(_) do
     ledger_txns = [
       %{id: "l1", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
