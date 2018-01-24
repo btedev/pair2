@@ -2,7 +2,7 @@
 
 Pair2 is a library for performing rules-based matches between records in two datasets. These datasets are typically from two different sources that pertain to the same or similar set of transactions. Matching allows you to compare the datasets and produces a list of matched records.
 
-Matching is designed primarily for reconciliations. Example use cases:
+Pair2 is designed primarily for reconciliations. Example use cases:
 
 * Bank reconciliations, where input datasets come from an accounting system and an online bank statement.
 
