@@ -18,7 +18,7 @@ by adding `pair2` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:pair2, "~> 0.1.0"}
+    {:pair2, "~> 0.1.1"}
   ]
 end
 ```
@@ -27,7 +27,7 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/pair2](https://hexdocs.pm/pair2).
 
-## Example
+## Matching Example
 
 To illustrate how Pair2 is useful in situations where a database join can lead to errors, take the example of reconciling a bank statement against an accounting system's transactions. In this example, the bookkeeper incorrectly recorded the Basecamp transaction twice and the two Github transactions have different dates.
 
@@ -216,8 +216,10 @@ bezell@argon ~/d/e/pair2_example> mix example_custom_function
 [{"l1", "r1", 2.875}, {"l3", "r2", 2.6666666666666665}]
 ```
 
-## Comments and Caveats
+## Matching Tips and Caveats
 
+* The two datasets being matches are referred to as "left" and "right".
+* At least one rule must be indexed. This is needed to generate the superset of potential right matches for each left record. All non-indexed rules contribute to the score that determines matches.
 * This is designed for 1:1 matching. You will need to fork and modify it for any other use.
 Check out fuzzy_match for a different approach to rich, rules-based searching: https://github.com/seamusabshere/fuzzy_match.
 FEBRL is another free data linking library written in Python: http://sourceforge.net/projects/febrl/.
@@ -227,6 +229,10 @@ FEBRL is another free data linking library written in Python: http://sourceforge
 assignment is arbitrary.
 * Testing is your friend. Test your rules in the controlled environment of the test suite before deploying on production data.
 * If you use it, I'd love to know what problem you're applying it to. Besides using it in my company, I also use it for reconciling my bank statement.
+
+## Deduplication
+
+Pair2 includes a data deduplication module. See test/deduper_test.exs for examples.
 
 ## Copyright
 
