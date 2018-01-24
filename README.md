@@ -158,6 +158,8 @@ bezell@argon ~/d/e/pair2_example> mix example
 [{"l1", "r1", 2.0}, {"l3", "r2", 1.9666666666666668}]
 ```
 
+The tuples define {left_id, right_id, match_score}.
+
 It correctly matched only one of the two duplicated Basecamp transactions to the bank statement and also matched the Github transactions despite the imperfect date match. Note that the weighting and minimum score required for a match can be adjusted by the developer. In your use of the library, you may want to accept all matches over a certain score (say 0.9) and manually review lower scoring matches (say between 0.7 and 0.9). The final score is arbitrary and the max score is determined by the rules you define. For instance, if you create three rules with the default score of 1.0, the max score for a perfect match is 3.0.
 
 Looking at this example, how could we add more specificity to the match? We might want to compare the name strings to reduce the chance of false matches. This is where custom functions come into play. This example below uses a custom function that calls [The_Fuzz](https://github.com/smashedtoatoms/the_fuzz) library to compare the edit distance between two strings and return a similarity value between 0.0 and 1.0. Note that the dates and amounts are all the same so the system would otherwise make arbitrary assignments.
