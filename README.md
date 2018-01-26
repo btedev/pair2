@@ -173,7 +173,7 @@ defmodule Mix.Tasks.ExampleCustomFunction do
     Matcher,
   }
 
-  @shortdoc "Example of matching using string edit distance"
+  @shortdoc "Simple example of matching"
   def run(_) do
     ledger_txns = [
       %{id: "l1", name: "Basecamp", amount: 25.0, date: ~D[2018-01-01]},
@@ -195,9 +195,9 @@ defmodule Mix.Tasks.ExampleCustomFunction do
       distance = TheFuzz.Similarity.Levenshtein.compare(string_a, string_b)
 
       shorter_length = [string_a, string_b]
-      |> Enum.sort(&(String.length(&1) < String.length(&2)))
+      |> Enum.map(&(String.length(&1)))
+      |> Enum.sort
       |> List.first
-      |> String.length
 
       (shorter_length - distance) / shorter_length
     end
