@@ -84,4 +84,14 @@ defmodule MatcherTest do
     assert Enum.any?(final, fn({l, _r, _s}) -> l == "l2" end) == true
     assert Enum.any?(final, fn({l, _r, _s}) -> l == "l3" end) == true
   end
+
+  test "end state test" do
+    matches = %{
+                "l1" => [{"r2", 2.0}, {"r3", 1.0}],
+                "l2" => [{"r2", 3.0}],
+                "l3" => []
+               }
+    final = Matcher.resolve(matches)
+    assert Enum.count(final) == 2
+  end
 end

@@ -50,12 +50,11 @@ defmodule Pair2.Matcher do
                                 |> Enum.filter(fn({_rm, score}) -> score >= min_score end)
                                 |> Enum.sort(&(elem(&1, 1) >= elem(&2, 1))) # sort by best score desc
 
-                [left_map.id, right_matches]
+                {left_map.id, right_matches}
               end)
               |> Enum.to_list()
-              |> Enum.filter(fn([_left, rights]) -> Enum.count(rights) > 0 end) # remove lefts with matches
-              |> Enum.reduce(%{}, fn(list, map) -> # convert to map of form %{left => [right1, right2, ...]}
-                  {[left], [rights]} = Enum.split(list, 1)
+              |> Enum.filter(fn({_left, rights}) -> Enum.count(rights) > 0 end) # remove lefts with matches
+              |> Enum.reduce(%{}, fn({left, rights}, map) -> # convert to map of form %{left => [right1, right2, ...]}
                   Map.put(map, left, rights)
               end)
 
@@ -68,12 +67,7 @@ defmodule Pair2.Matcher do
   { left1: [{right1, score1}, {right2, score2}, ...], left2... }
   """
   def add_match(matches, left, right, score) do
-    case Map.has_key?(matches, left) do
-      true ->
-        Map.update!(matches, left, fn(list) -> [{right, score}] ++ list end)
-      false ->
-        Map.put(matches, left, [{right, score}])
-    end
+    Map.update(matches, left, [{right, score}], fn(list) -> [{right, score}] ++ list end)
   end
 
   @doc """
@@ -110,29 +104,29 @@ defmodule Pair2.Matcher do
     rights = Map.fetch!(all, uh)
 
     if Enum.empty?(rights) do
-        resolve(ut, all, matched_rights)
-    end
+      resolve(ut, all, matched_rights)
+    else
+      {right_match, score, new_rights, unresolved} = best_match(uh, rights, matched_rights)
 
-    {right_match, score, new_rights, unresolved} = best_match(uh, rights, matched_rights)
+      # Update the list of all matches with a reduced list of right match
+      # options. All options are retained until conflict resolution is
+      # complete because a given left map may be temporarily matched to
+      # multiple right maps during the process.
+      new_all = Map.put(all, uh, new_rights)
 
-    # Update the list of all matches with a reduced list of right match
-    # options. All options are retained until conflict resolution is
-    # complete because a given left map may be temporarily matched to
-    # multiple right maps during the process.
-    new_all = Map.put(all, uh, new_rights)
+      new_unresolved = case unresolved do
+        nil ->
+          ut
+        _ ->
+          [unresolved] ++ ut
+      end
 
-    new_unresolved = case unresolved do
-      nil ->
-        ut
-      _ ->
-        [unresolved] ++ ut
-    end
-
-    case right_match do
-      nil ->
-        resolve(new_unresolved, new_all, matched_rights)
-      _ ->
-        resolve(new_unresolved, new_all, Map.put(matched_rights, right_match, {uh, score}))
+      case right_match do
+        nil ->
+          resolve(new_unresolved, new_all, matched_rights)
+        _ ->
+          resolve(new_unresolved, new_all, Map.put(matched_rights, right_match, {uh, score}))
+      end
     end
   end
 
