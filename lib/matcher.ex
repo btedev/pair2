@@ -15,9 +15,8 @@ defmodule Pair2.Matcher do
   """
   def match(list_l, list_r, rules, min_score) do
     with {:ok, indexed_attrs} <- get_indexed_rule_attrs(rules),
-         :ok                  <- Index.load_indexes(list_r, indexed_attrs),
-         {:ok, all_matches}   <- get_all_matches(list_l, indexed_attrs, rules, min_score),
-         :ok                  <- Index.close_indexes(indexed_attrs)
+         {:ok, index_map}     <- Index.load_indexes(list_r, indexed_attrs),
+         {:ok, all_matches}   <- get_all_matches(index_map, list_l, indexed_attrs, rules, min_score)
     do
       {:ok, resolve(all_matches)}
     else
@@ -25,7 +24,7 @@ defmodule Pair2.Matcher do
     end
   end
 
-  def get_indexed_rule_attrs(rules) do
+  defp get_indexed_rule_attrs(rules) do
     indexed_attrs = rules
                     |> Enum.filter(&(&1.indexed))
                     |> Enum.map(&(&1.right_attr))
@@ -36,38 +35,31 @@ defmodule Pair2.Matcher do
     end
   end
 
-  def get_all_matches(list_l, indexed_attrs, rules, min_score) do
+  defp get_all_matches(index_map, list_l, indexed_attrs, rules, min_score) do
     matches = list_l
-              |> Flow.from_enumerable()
-              |> Flow.partition()
-              |> Flow.map(fn(left_map) ->
-
-                right_matches = left_map
-                                |> Index.get_potential_matches(indexed_attrs)
-                                |> Enum.map(fn(right_map) ->
-                                  {right_map.id, Comparer.compare_maps(left_map, right_map, rules)}
-                                end)
-                                |> Enum.filter(fn({_rm, score}) -> score >= min_score end)
-                                |> Enum.sort(&(elem(&1, 1) >= elem(&2, 1))) # sort by best score desc
-
+              |> Enum.map(fn left_map  ->
+                right_matches = get_right_matches(left_map, index_map, indexed_attrs, rules, min_score)
                 {left_map.id, right_matches}
               end)
-              |> Enum.to_list()
-              |> Enum.filter(fn({_left, rights}) -> Enum.count(rights) > 0 end) # remove lefts with matches
-              |> Enum.reduce(%{}, fn({left, rights}, map) -> # convert to map of form %{left => [right1, right2, ...]}
+              |> Enum.filter(fn {_left, rights} -> Enum.count(rights) > 0 end) # remove lefts with matches
+              |> Enum.reduce(%{}, fn {left, rights}, map -> # convert to map of form %{left => [right1, right2, ...]}
                   Map.put(map, left, rights)
               end)
 
     {:ok, matches}
   end
 
-  @doc """
-  Add a right match to the list associated with the left map.
-  Structure:
-  { left1: [{right1, score1}, {right2, score2}, ...], left2... }
-  """
-  def add_match(matches, left, right, score) do
-    Map.update(matches, left, [{right, score}], fn(list) -> [{right, score}] ++ list end)
+  defp get_right_matches(left_map, index_map, indexed_attrs, rules, min_score) do
+    case Index.get_potential_matches(left_map, index_map, indexed_attrs) do
+      [nil] -> []
+      rights ->
+        rights
+        |> Enum.map(fn right_map  ->
+          {right_map.id, Comparer.compare_maps(left_map, right_map, rules)}
+        end)
+        |> Enum.filter(fn {_rm, score} -> score >= min_score end)
+        |> Enum.sort(&(elem(&1, 1) >= elem(&2, 1))) # sort by best score desc
+    end
   end
 
   @doc """
@@ -89,18 +81,18 @@ defmodule Pair2.Matcher do
     resolve(unresolved, matches, %{})
   end
 
-  def resolve([], _all, matched_rights) do
+  defp resolve([], _all, matched_rights) do
     # Return list of form { left, right, score }
     matched_rights
     |> Map.keys
-    |> Enum.reduce([], fn(right, list) ->
+    |> Enum.reduce([], fn right, list ->
       {left, score} = Map.fetch!(matched_rights, right)
       [{left, right, score}] ++ list
     end)
     |> Enum.reverse
   end
 
-  def resolve([uh|ut], all, matched_rights) do
+  defp resolve([uh|ut], all, matched_rights) do
     rights = Map.fetch!(all, uh)
 
     if Enum.empty?(rights) do
@@ -130,15 +122,13 @@ defmodule Pair2.Matcher do
     end
   end
 
-  def best_match(_l, [], _mr), do: {nil, 0.0, [], nil} # SOL
+  # For a given left map, find the highest-scoring right map
+  # that is available for matching. If a previously-existing matched pair
+  # has a lower score, replace it and add that previous left map back to
+  # the unresolved list.
+  defp best_match(_l, [], _mr), do: {nil, 0.0, [], nil} # SOL
 
-  @doc """
-  For a given left map, find the highest-scoring right map
-  that is available for matching. If a previously-existing matched pair
-  has a lower score, replace it and add that previous left map back to
-  the unresolved list.
-  """
-  def best_match(left, [rh|rt], matched_rights) do
+  defp best_match(left, [rh|rt], matched_rights) do
     {right, score} = rh
 
     case Map.fetch(matched_rights, right) do

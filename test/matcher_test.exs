@@ -5,7 +5,7 @@ defmodule MatcherTest do
   alias Pair2.MatchRule
 
   setup do
-    basic = %{id: 1, amount: 1.0, date: ~D[2016-01-01]}
+    basic = [%{id: 1, amount: 1.0, date: ~D[2016-01-01]}]
 
     # When matching on both mdn and date, a correct match
     # will require conflict resolution. lcell1 will initially match
@@ -30,35 +30,32 @@ defmodule MatcherTest do
     end
   end
 
-  test "it matches two lists of maps based on multiple match rules", state do
-    rec         = state[:basic]
+  test "it matches two lists of maps based on multiple match rules", %{basic: data} do
     rule_amount = %MatchRule{left_attr: :amount, right_attr: :amount, indexed: true}
     rule_date   = %MatchRule{left_attr: :date, right_attr: :date}
 
-    {:ok, matches} = Matcher.match([rec], [rec], [rule_amount, rule_date], 1.0)
-    assert Enum.count(matches) == 1
+    {:ok, matches} = Matcher.match(data, data, [rule_amount, rule_date], 1.0)
+    assert 1 == Enum.count(matches)
 
     [{_match_l, _match_r, score}] = matches
-    assert score   == 2.0
+    assert 2.0 == score
 
-    {:ok, matches2} = Matcher.match([rec], [rec], [rule_amount, rule_date], 3.0)
-    assert Enum.count(matches2) == 0
+    {:ok, matches2} = Matcher.match(data, data, [rule_amount, rule_date], 3.0)
+    assert 0 == Enum.count(matches2)
   end
 
-  test "it resolves conflicts when there are multiple match options", state do
-    lcells = state[:lcells]
-    rcells = state[:rcells]
+  test "it resolves conflicts when there are multiple match options", %{lcells: lcells, rcells: rcells} do
     rule_mdn  = %MatchRule{left_attr: :mdn, right_attr: :mdn, indexed: true}
     rule_date = %MatchRule{left_attr: :date, right_attr: :date, min_match: 0.0}
 
     {:ok, matches} = Matcher.match(lcells, rcells, [rule_mdn, rule_date], 1.1)
-    assert Enum.count(matches) == 2
+    assert 2 == Enum.count(matches)
 
     {"l3", "r1", s0} = Enum.at(matches, 0)
     assert s0 > 1.96 && s0 < 1.97
 
     {"l1", "r3", s1} = Enum.at(matches, 1)
-    assert s1 == 2.0
+    assert 2.0 == s1
   end
 
   test "conflict resolution test 1" do
@@ -67,9 +64,9 @@ defmodule MatcherTest do
                 "l2" => [{"r2", 1.0}]
                }
     final = Matcher.resolve(matches)
-    assert Enum.count(final) == 2
-    assert Enum.at(final, 0) == {"l1", "r1", 3.0}
-    assert Enum.at(final, 1) == {"l2", "r2", 1.0}
+    assert 2 == Enum.count(final)
+    assert {"l1", "r1", 3.0} == Enum.at(final, 0)
+    assert {"l2", "r2", 1.0} == Enum.at(final, 1)
   end
 
   test "conflict resolution test 2" do
@@ -79,10 +76,10 @@ defmodule MatcherTest do
                 "l3" => [{"r3", 2.0}]
                }
     final = Matcher.resolve(matches)
-    assert Enum.count(final) == 2
-    assert Enum.any?(final, fn({l, _r, _s}) -> l == "l1" end) == false
-    assert Enum.any?(final, fn({l, _r, _s}) -> l == "l2" end) == true
-    assert Enum.any?(final, fn({l, _r, _s}) -> l == "l3" end) == true
+    assert 2 == Enum.count(final)
+    refute Enum.any?(final, fn({l, _r, _s}) -> l == "l1" end)
+    assert Enum.any?(final, fn({l, _r, _s}) -> l == "l2" end)
+    assert Enum.any?(final, fn({l, _r, _s}) -> l == "l3" end)
   end
 
   test "end state test" do
@@ -92,6 +89,6 @@ defmodule MatcherTest do
                 "l3" => []
                }
     final = Matcher.resolve(matches)
-    assert Enum.count(final) == 2
+    assert 2 == Enum.count(final)
   end
 end

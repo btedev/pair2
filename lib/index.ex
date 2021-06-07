@@ -1,71 +1,55 @@
 defmodule Pair2.Index do
   @moduledoc """
-  Maintains an ETS map of attribute values to ID values.
-  For instance, an index of mobile numbers will list ID's
+  Maintains a map of maps of attribute values to ID values.
+  For instance, a map of mobile numbers (keys) will list ID's (values)
   of all records with a given mobile number.
   """
 
-  def new(attr) do
-    :ets.new(attr, [:set, :protected, :named_table])
-  end
-
-  def delete(attr) do
-    :ets.delete(attr)
-  end
-
-  def put(_attr, nil, _id), do: nil
-  def put(_attr, "", _id), do: nil
-  def put(_attr, '', _id), do: nil
-  def put(attr, serial, id) do
-    case :ets.lookup(attr, serial) do
-      [] ->
-        :ets.insert_new(attr, {serial, [id]})
-      [{serial, list}] ->
-        :ets.insert(attr, {serial, [id|list]})
-    end
-  end
-
-  def get(attr, serial) do
-    case :ets.lookup(attr, serial) do
-      [] ->
-        []
-      [{_, list}] ->
-        list
-    end
-  end
-
   def load_indexes(list, indexed_attrs) do
-    # Create an index for each indexed attribute.
-    Enum.each(indexed_attrs, fn(attr) ->
-      new(attr)
-
-      Enum.each(list, fn(r) -> put(attr, Map.fetch!(r, attr), r.id) end)
+    # Create a map for each indexed attribute.
+    indexes = Enum.reduce(indexed_attrs, %{}, fn attr, map ->
+      Map.put(map, attr, build_index(list, attr))
     end)
 
-    # Create an index for the full map
-    new(:full)
-    Enum.each(list, fn(r) -> put(:full, r.id, r) end)
+    full = Enum.reduce(list, %{}, fn item, map ->
+      Map.put(map, item.id, item)
+    end)
 
-    :ok
+    {:ok, Map.put(indexes, :full, full)}
   end
 
-  def close_indexes(indexed_attrs) do
-    Enum.each(indexed_attrs, &(delete&1))
-    delete(:full)
-
-    :ok
+  defp build_index(list, attr) do
+    Enum.reduce(list, %{}, fn item, map ->
+      val = Map.get(item, attr)
+      put(map, val, item.id)
+    end)
   end
 
-  def get_potential_matches(target_map, indexed_attrs) do
+  def get_potential_matches(target_map, index_map, indexed_attrs) do
     indexed_attrs
-    |> Enum.reduce([], fn(attr, acc) ->
+    |> Enum.reduce([], fn attr, list  ->
       target_val = Map.fetch!(target_map, attr)
-      acc ++ get(attr, target_val)
+
+      case get_ids(index_map, attr, target_val) do
+        nil -> list
+        ids -> [ids | list]
+      end
     end) # IDs
-    |> Enum.uniq
+    |> List.flatten()
+    |> Enum.uniq()
     |> Enum.map(fn(id) ->
-      get(:full, id)
+      get_in(index_map, [:full, id])
     end) # Full maps
-    |> List.flatten
   end
+
+  defp get_ids(map, attr, serial) do
+     map
+     |> Map.get(attr)
+     |> Map.get(serial)
+  end
+
+  defp put(map, nil, _id), do: map
+  defp put(map, "", _id), do: map
+  defp put(map, '', _id), do: map
+  defp put(map, serial, id), do: Map.update(map, serial, [id], fn list -> [id|list] end)
 end

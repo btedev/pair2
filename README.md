@@ -232,10 +232,6 @@ assignment is arbitrary.
 * Testing is your friend. Test your rules in the controlled environment of the test suite before deploying on production data.
 * If you use it, I'd love to know what problem you're applying it to. Besides using it in my company, I also use it for reconciling my bank statement.
 
-## Deduplication
-
-Pair2 includes a data deduplication module. See test/deduper_test.exs for examples.
-
 ## Copyright
 
 Copyright (c) 2018 Barry Ezell. MIT License:

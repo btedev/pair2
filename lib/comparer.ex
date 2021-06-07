@@ -58,7 +58,7 @@ defmodule Pair2.Comparer do
   end
 
   def compare_strings(x, y) do
-    case x == y do
+    case x === y do
       true -> 1.0
       false -> 0.0
     end
