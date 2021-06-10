@@ -133,11 +133,10 @@ defmodule Pair2.Matcher do
 
     case Map.fetch(matched_rights, right) do
       {:ok, {previous_left, previous_score}} ->
-        case score > previous_score do
-          true ->
+        if score > previous_score do
             # Replace the previous winner with this left.
             {right, score, rt, previous_left}
-          false ->
+        else
             # Previous winner remains. Keep searching.
             best_match(left, rt, matched_rights)
         end

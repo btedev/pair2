@@ -9,16 +9,18 @@ defmodule Pair2.Comparer do
   """
   def compare_maps(map_l, map_r, rules) do
     Enum.reduce(rules, 0.0, fn(rule, acc) ->
-      {l_val, r_val} = case Map.has_key?(rule, :left_attr) do
-        true  -> {Map.get(map_l, rule.left_attr), Map.get(map_r, rule.right_attr)}
-        false -> {Map.get(map_l, rule.attr), Map.get(map_r, rule.attr)}
+      {l_val, r_val} = if Map.has_key?(rule, :left_attr) do
+        {Map.get(map_l, rule.left_attr), Map.get(map_r, rule.right_attr)}
+      else
+        {Map.get(map_l, rule.attr), Map.get(map_r, rule.attr)}
       end
 
       score = compare(l_val, r_val, rule)
 
-      case score >= rule.min_match do
-        true  -> acc + (score * rule.weight)
-        false -> acc
+      if score >= rule.min_match do
+        acc + (score * rule.weight)
+      else
+        acc
       end
     end)
   end
@@ -58,9 +60,10 @@ defmodule Pair2.Comparer do
   end
 
   def compare_strings(x, y) do
-    case x === y do
-      true -> 1.0
-      false -> 0.0
+    if x === y do
+      1.0
+    else
+      0.0
     end
   end
 
